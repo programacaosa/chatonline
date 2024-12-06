@@ -246,7 +246,13 @@ function autoLogin(savedUsername) {
         document.getElementById('chatSection').style.display = 'block';
     };
 }
-
+        
+// Toggle para o menu hambúrguer
+        document.getElementById('hamburger').onclick = () => {
+            const userList = document.getElementById('userList');
+            userList.style.display = userList.style.display === 'block' ? 'none' : 'block';
+        };
+        
 // Salvar mensagem no localStorage
 function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
     const chatKey = `${sender}-${recipient}`;

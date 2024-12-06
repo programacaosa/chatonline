@@ -160,6 +160,7 @@
             <div id="messages"></div>
             <input type="text" id="messageInput" placeholder="Digite uma mensagem..." />
             <button id="sendMessageBtn">Enviar</button>
+            <button id="clearChatBtn">Limpar Conversa</button> <!-- Botão para limpar conversa -->
         </div>
     </div>
 
@@ -201,25 +202,22 @@ function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
     const chatKey = `${sender}-${recipient}`;
     const reverseChatKey = `${recipient}-${sender}`;
 
-    // Verifica se existe um histórico para esse chat ou o contrário
     let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
     const timestamp = new Date().toISOString();
 
-    // Mensagem a ser salva com timestamp e status de visualização
     const messageObject = {
         sender,
         message,
         timestamp,
-        read: isReceived ? false : true // Se for uma mensagem recebida, ela ainda não foi lida
+        read: isReceived ? false : true
     };
 
     chatHistory.push(messageObject);
-    localStorage.setItem(chatKey, JSON.stringify(chatHistory)); 
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory));
 
-    // Também guarda o histórico no chat inverso (de recipient para sender)
     let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
-    reverseChatHistory.push({ sender, message, timestamp, read: true }); // Recebida já marcada como lida
-    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory)); 
+    reverseChatHistory.push({ sender, message, timestamp, read: true });
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
 }
 
 // Carregar mensagens do localStorage
@@ -227,15 +225,12 @@ function loadMessagesFromLocalStorage(user1, user2) {
     const chatKey = `${user1}-${user2}`;
     const reverseChatKey = `${user2}-${user1}`;
 
-    // Buscar as mensagens do localStorage
     const chatHistory = JSON.parse(localStorage.getItem(chatKey)) || JSON.parse(localStorage.getItem(reverseChatKey)) || [];
 
-    // Exibir as mensagens carregadas
     chatHistory.forEach(chat => {
         appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
     });
 
-    // Marcar todas as mensagens como "lidas" após abrir o chat
     markMessagesAsRead(user1, user2);
 }
 
@@ -262,9 +257,9 @@ document.getElementById('sendMessageBtn').onclick = () => {
     const message = document.getElementById('messageInput').value;
     if (message && targetUser) {
         ws.send(JSON.stringify({ type: 'private_message', target: targetUser, message }));
-        saveMessageToLocalStorage(username, targetUser, message, false); // Salvar mensagem enviada
+        saveMessageToLocalStorage(username, targetUser, message, false);
         appendMessage('Você', message, true, new Date().toISOString(), true);
-        document.getElementById('messageInput').value = ''; // Limpar input
+        document.getElementById('messageInput').value = '';
     }
 };
 
@@ -272,23 +267,21 @@ document.getElementById('sendMessageBtn').onclick = () => {
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    // Atualizar lista de usuários
     if (data.type === 'user_list') {
         const userList = document.getElementById('userList');
-        userList.innerHTML = ''; // Limpar lista antes de atualizar
+        userList.innerHTML = '';
         data.users.forEach(user => {
             const div = document.createElement('div');
             div.classList.add('user');
             div.innerHTML = `${user.username} ${user.status}`;
-            div.onclick = () => startChat(user.username); // Iniciar conversa ao clicar
+            div.onclick = () => startChat(user.username);
             userList.appendChild(div);
         });
     }
 
-    // Receber mensagem privada
     if (data.type === 'private_message') {
         if (data.from === targetUser) {
-            saveMessageToLocalStorage(data.from, username, data.message, true); // Salvar mensagem recebida
+            saveMessageToLocalStorage(data.from, username, data.message, true);
             appendMessage(data.from, data.message, false, new Date().toISOString(), false);
         } else {
             alert(`Nova mensagem de ${data.from}`);
@@ -302,8 +295,7 @@ function startChat(user) {
     document.getElementById('chatWith').textContent = user;
     document.getElementById('chatBox').style.display = 'block';
 
-    // Carregar histórico de mensagens
-    document.getElementById('messages').innerHTML = ''; // Limpar mensagens antigas
+    document.getElementById('messages').innerHTML = '';
     loadMessagesFromLocalStorage(username, user);
 }
 
@@ -315,13 +307,25 @@ function appendMessage(sender, message, isSent, timestamp, readStatus) {
     
     const time = new Date(timestamp).toLocaleTimeString();
     const readIcon = readStatus
-        ? '<span class="read-icon" style="color: green;">✓</span>' // Ícone verde (visualizada)
-        : '<span class="read-icon" style="color: gray;">✓</span>'; // Ícone cinza (não visualizada)
+        ? '<span class="read-icon" style="color: green;">✓</span>'
+        : '<span class="read-icon" style="color: gray;">✓</span>';
 
     messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
     messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+
+// Limpar conversa do usuário selecionado
+document.getElementById('clearChatBtn').onclick = () => {
+    if (targetUser) {
+        const chatKey = `${username}-${targetUser}`;
+        const reverseChatKey = `${targetUser}-${username}`;
+        localStorage.removeItem(chatKey);
+        localStorage.removeItem(reverseChatKey);
+
+        document.getElementById('messages').innerHTML = ''; // Limpar as mensagens exibidas
+    }
+};
 </script>
 
 </body>

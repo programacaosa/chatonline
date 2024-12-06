@@ -4,137 +4,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat WebSocket</title>
-    </style>
-body {
-    font-family: Arial, sans-serif;
-}
+   <style>
+    body {
+        font-family: Arial, sans-serif;
+    }
 
-#userSection {
-    display: block;
-}
+    #userSection {
+        display: block;
+    }
 
-#chatSection {
-    display: none;
-}
-
-.user {
-    cursor: pointer;
-    padding: 5px;
-    margin: 5px;
-    background-color: #f0f0f0;
-    border-radius: 5px;
-}
-
-.user:hover {
-    background-color: #ddd;
-}
-
-.online {
-    color: green;
-}
-
-.offline {
-    color: gray;
-}
-
-.chatBox {
-    display: none;
-    margin-top: 20px;
-}
-
-.read-icon {
-    font-size: 12px;
-    margin-left: 5px;
-    font-weight: bold;
-    color: #007bff; /* Cor do visto */
-}
-
-#messages {
-    margin-bottom: 10px;
-    max-height: 300px;
-    overflow-y: scroll;
-    padding: 10px;
-}
-
-#messageInput {
-    width: 100%;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #ddd;
-    box-sizing: border-box;
-}
-
-#sendMessageBtn {
-    padding: 10px 15px;
-    cursor: pointer;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
-/* Balões de mensagens */
-.sent, .received {
-    display: inline-block;
-    padding: 10px;
-    max-width: 70%;
-    border-radius: 15px;
-    margin: 5px;
-    word-wrap: break-word;
-    position: relative;
-}
-
-/* Balão de mensagem enviada (alinhado à direita) */
-.sent {
-    background-color: #007bff;
-    color: white;
-    align-self: flex-end; /* Envia para o lado direito */
-    border-bottom-right-radius: 0;
-}
-
-/* Balão de mensagem recebida (alinhado à esquerda) */
-.received {
-    background-color: #e0e0e0;
-    color: black;
-    align-self: flex-start; /* Envia para o lado esquerdo */
-    border-bottom-left-radius: 0;
-}
-
-/* Hora da mensagem */
-.message-time {
-    font-size: 12px;
-    color: #888;
-    margin-left: 5px;
-}
-
-/* Exibe o ícone de visto ao lado da mensagem recebida */
-.received .read-icon {
-    font-size: 14px;
-    color: green;
-}
-
-/* Responsividade para telas pequenas */
-@media (max-width: 600px) {
     #chatSection {
-        width: 100%;
-        padding: 15px;
+        display: none;
+    }
+
+    .user {
+        cursor: pointer;
+        padding: 5px;
+        margin: 5px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+    }
+
+    .user:hover {
+        background-color: #ddd;
+    }
+
+    .online {
+        color: green;
+    }
+
+    .offline {
+        color: gray;
+    }
+
+    .chatBox {
+        display: none;
+        margin-top: 20px;
+    }
+
+    .read-icon {
+        font-size: 12px;
+        margin-left: 5px;
+        font-weight: bold;
+        color: #007bff; /* Cor do visto */
     }
 
     #messages {
-        max-height: 350px;
+        margin-bottom: 10px;
+        max-height: 300px;
+        overflow-y: scroll;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
     }
 
-    .sent, .received {
-        font-size: 14px;
+    #messageInput {
+        width: 100%;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
     }
 
     #sendMessageBtn {
-        font-size: 16px;
-        padding: 12px 15px;
+        padding: 10px 15px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        margin-top: 10px;
     }
-}
+
+    /* Balões de mensagens */
+    .sent, .received {
+        display: inline-block;
+        padding: 10px;
+        max-width: 70%;
+        border-radius: 15px;
+        margin: 5px;
+        word-wrap: break-word;
+        position: relative;
+        clear: both;
+    }
+
+    /* Balão de mensagem enviada (alinhado à direita) */
+    .sent {
+        background-color: #007bff;
+        color: white;
+        align-self: flex-end; /* Envia para o lado direito */
+        border-bottom-right-radius: 0;
+        margin-left: auto;
+    }
+
+    /* Balão de mensagem recebida (alinhado à esquerda) */
+    .received {
+        background-color: #e0e0e0;
+        color: black;
+        align-self: flex-start; /* Envia para o lado esquerdo */
+        border-bottom-left-radius: 0;
+    }
+
+    /* Hora da mensagem */
+    .message-time {
+        font-size: 12px;
+        color: #888;
+        margin-left: 5px;
+    }
+
+    /* Exibe o ícone de visto ao lado da mensagem recebida */
+    .received .read-icon {
+        font-size: 14px;
+        color: green;
+        position: absolute;
+        right: 10px;
+        bottom: 5px;
+    }
+
+    /* Responsividade para telas pequenas */
+    @media (max-width: 600px) {
+        #chatSection {
+            width: 100%;
+            padding: 15px;
+        }
+
+        #messages {
+            max-height: 350px;
+        }
+
+        .sent, .received {
+            font-size: 14px;
+        }
+
+        #sendMessageBtn {
+            font-size: 16px;
+            padding: 12px 15px;
+        }
+    }
 </style>
+
 </head>
 <body>
     <h1>Chat WebSocket</h1>

@@ -102,32 +102,42 @@ function autoLogin(savedUsername) {
 }
 
 // Salvar mensagem no localStorage
-function saveMessageToLocalStorage(sender, recipient, message) {
+function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
     const chatKey = `${sender}-${recipient}`;
     const reverseChatKey = `${recipient}-${sender}`;
-    
+
     // Verifica se existe um histórico para esse chat ou o contrário
     let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
-    chatHistory.push({ sender, message, timestamp: new Date().toISOString() });
-    localStorage.setItem(chatKey, JSON.stringify(chatHistory));
-    
+    const timestamp = new Date().toISOString();
+
+    // Mensagem a ser salva com timestamp e status de visualização
+    const messageObject = {
+        sender,
+        message,
+        timestamp,
+        read: !isReceived // Se for uma mensagem recebida, ela ainda não foi lida
+    };
+
+    chatHistory.push(messageObject);
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory)); 
+
     // Também guarda o histórico no chat inverso (de recipient para sender)
     let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
-    reverseChatHistory.push({ sender, message, timestamp: new Date().toISOString() });
-    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
+    reverseChatHistory.push({ sender, message, timestamp, read: true }); // Recebida já marcada como lida
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory)); 
 }
 
 // Carregar mensagens do localStorage
 function loadMessagesFromLocalStorage(user1, user2) {
     const chatKey = `${user1}-${user2}`;
     const reverseChatKey = `${user2}-${user1}`;
-    
+
     // Buscar as mensagens do localStorage
     const chatHistory = JSON.parse(localStorage.getItem(chatKey)) || JSON.parse(localStorage.getItem(reverseChatKey)) || [];
 
     // Exibir as mensagens carregadas
     chatHistory.forEach(chat => {
-        appendMessage(chat.sender, chat.message, chat.sender === username);
+        appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
     });
 }
 
@@ -136,8 +146,8 @@ document.getElementById('sendMessageBtn').onclick = () => {
     const message = document.getElementById('messageInput').value;
     if (message && targetUser) {
         ws.send(JSON.stringify({ type: 'private_message', target: targetUser, message }));
-        saveMessageToLocalStorage(username, targetUser, message); // Salvar mensagem enviada
-        appendMessage('Você', message, true);
+        saveMessageToLocalStorage(username, targetUser, message, false); // Salvar mensagem enviada
+        appendMessage('Você', message, true, new Date().toISOString(), true);
         document.getElementById('messageInput').value = ''; // Limpar input
     }
 };
@@ -153,7 +163,7 @@ ws.onmessage = (event) => {
         data.users.forEach(user => {
             const div = document.createElement('div');
             div.classList.add('user');
-            div.innerHTML = `${user.username} <span class="${user.status}">${user.status}</span>`;
+            div.innerHTML = `${user.username} ${user.status}`;
             div.onclick = () => startChat(user.username); // Iniciar conversa ao clicar
             userList.appendChild(div);
         });
@@ -162,8 +172,8 @@ ws.onmessage = (event) => {
     // Receber mensagem privada
     if (data.type === 'private_message') {
         if (data.from === targetUser) {
-            saveMessageToLocalStorage(data.from, username, data.message); // Salvar mensagem recebida
-            appendMessage(data.from, data.message, false);
+            saveMessageToLocalStorage(data.from, username, data.message, true); // Salvar mensagem recebida
+            appendMessage(data.from, data.message, false, new Date().toISOString(), false);
         } else {
             alert(`Nova mensagem de ${data.from}`);
         }
@@ -182,14 +192,19 @@ function startChat(user) {
 }
 
 // Função para adicionar uma mensagem à área de conversa
-function appendMessage(sender, message, isSent) {
+function appendMessage(sender, message, isSent, timestamp, readStatus) {
     const messagesDiv = document.getElementById('messages');
     const messageDiv = document.createElement('div');
     messageDiv.classList.add(isSent ? 'sent' : 'received');
-    messageDiv.textContent = `${sender}: ${message}`;
+    
+    const time = new Date(timestamp).toLocaleTimeString();
+    const readStatusText = readStatus ? 'Visualizada' : 'Não visualizada';
+
+    messageDiv.innerHTML = `${sender} (${time}) [${readStatusText}]: ${message}`;
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
 }
+
 </script>
 
 </body>

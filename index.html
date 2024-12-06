@@ -127,7 +127,7 @@
         const message = document.getElementById('messageInput').value;
         if (message && targetUser) {
             ws.send(JSON.stringify({ type: 'private_message', target: targetUser, message }));
-            saveMessageToLocalStorage(username, targetUser, message); // Salvar mensagem
+            saveMessageToLocalStorage(username, targetUser, message); // Salvar mensagem enviada
             appendMessage('Você', message, true);
             document.getElementById('messageInput').value = ''; // Limpar input
         }
@@ -153,7 +153,7 @@
         // Receber mensagem privada
         if (data.type === 'private_message') {
             if (data.from === targetUser) {
-                saveMessageToLocalStorage(data.from, username, data.message); // Salvar mensagem
+                saveMessageToLocalStorage(data.from, username, data.message); // Salvar mensagem recebida
                 appendMessage(data.from, data.message, false);
             } else {
                 alert(`Nova mensagem de ${data.from}`);
@@ -182,7 +182,6 @@
         messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
     }
 </script>
-
 
 </body>
 </html>

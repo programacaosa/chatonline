@@ -34,6 +34,12 @@
             display: none;
             margin-top: 20px;
         }
+        .read-icon {
+    font-size: 12px;
+    margin-left: 5px;
+    font-weight: bold;
+}
+
         #messages {
             margin-bottom: 10px;
             max-height: 300px;
@@ -115,7 +121,7 @@ function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
         sender,
         message,
         timestamp,
-        read: !isReceived // Se for uma mensagem recebida, ela ainda não foi lida
+        read: isReceived ? false : true // Se for uma mensagem recebida, ela ainda não foi lida
     };
 
     chatHistory.push(messageObject);
@@ -139,6 +145,27 @@ function loadMessagesFromLocalStorage(user1, user2) {
     chatHistory.forEach(chat => {
         appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
     });
+
+    // Marcar todas as mensagens como "lidas" após abrir o chat
+    markMessagesAsRead(user1, user2);
+}
+
+// Marcar as mensagens como lidas
+function markMessagesAsRead(user1, user2) {
+    const chatKey = `${user1}-${user2}`;
+    const reverseChatKey = `${user2}-${user1}`;
+
+    let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
+    chatHistory.forEach(message => {
+        message.read = true;
+    });
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory));
+
+    let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+    reverseChatHistory.forEach(message => {
+        message.read = true;
+    });
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
 }
 
 // Enviar mensagem
@@ -198,13 +225,14 @@ function appendMessage(sender, message, isSent, timestamp, readStatus) {
     messageDiv.classList.add(isSent ? 'sent' : 'received');
     
     const time = new Date(timestamp).toLocaleTimeString();
-    const readStatusText = readStatus ? 'Visualizada' : 'Não visualizada';
+    const readIcon = readStatus
+        ? '<span class="read-icon" style="color: green;">✓</span>' // Ícone verde (visualizada)
+        : '<span class="read-icon" style="color: gray;">✓</span>'; // Ícone cinza (não visualizada)
 
-    messageDiv.innerHTML = `${sender} (${time}) [${readStatusText}]: ${message}`;
+    messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
     messagesDiv.appendChild(messageDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
 }
-
 </script>
 
 </body>

@@ -5,8 +5,144 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat WebSocket</title>
    <style>
-    /* (Seu código de estilo permanece o mesmo) */
-   </style>
+    body {
+        font-family: Arial, sans-serif;
+    }
+
+    #userSection {
+        display: block;
+    }
+
+    #chatSection {
+        display: none;
+    }
+
+    .user {
+        cursor: pointer;
+        padding: 5px;
+        margin: 5px;
+        background-color: #f0f0f0;
+        border-radius: 5px;
+    }
+
+    .user:hover {
+        background-color: #ddd;
+    }
+
+    .online {
+        color: green;
+    }
+
+    .offline {
+        color: gray;
+    }
+
+    .chatBox {
+        display: none;
+        margin-top: 20px;
+    }
+
+    .read-icon {
+        font-size: 12px;
+        margin-left: 5px;
+        font-weight: bold;
+        color: #007bff; /* Cor do visto */
+    }
+
+    #messages {
+        margin-bottom: 10px;
+        max-height: 300px;
+        overflow-y: scroll;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #messageInput {
+        width: 100%;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
+    }
+
+    #sendMessageBtn {
+        padding: 10px 15px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+
+    /* Balões de mensagens */
+    .sent, .received {
+        display: inline-block;
+        padding: 10px;
+        max-width: 70%;
+        border-radius: 15px;
+        margin: 5px;
+        word-wrap: break-word;
+        position: relative;
+        clear: both;
+    }
+
+    /* Balão de mensagem enviada (alinhado à direita) */
+    .sent {
+        background-color: #007bff;
+        color: white;
+        align-self: flex-end; /* Envia para o lado direito */
+        border-bottom-right-radius: 0;
+        margin-left: auto;
+    }
+
+    /* Balão de mensagem recebida (alinhado à esquerda) */
+    .received {
+        background-color: #e0e0e0;
+        color: black;
+        align-self: flex-start; /* Envia para o lado esquerdo */
+        border-bottom-left-radius: 0;
+    }
+
+    /* Hora da mensagem */
+    .message-time {
+        font-size: 12px;
+        color: #888;
+        margin-left: 5px;
+    }
+
+    /* Exibe o ícone de visto ao lado da mensagem recebida */
+    .received .read-icon {
+        font-size: 14px;
+        color: green;
+        position: absolute;
+        right: 10px;
+        bottom: 5px;
+    }
+
+    /* Responsividade para telas pequenas */
+    @media (max-width: 600px) {
+        #chatSection {
+            width: 100%;
+            padding: 15px;
+        }
+
+        #messages {
+            max-height: 350px;
+        }
+
+        .sent, .received {
+            font-size: 14px;
+        }
+
+        #sendMessageBtn {
+            font-size: 16px;
+            padding: 12px 15px;
+        }
+    }
+</style>
+
 </head>
 <body>
     <h1>Chat WebSocket</h1>
@@ -24,144 +160,169 @@
             <div id="messages"></div>
             <input type="text" id="messageInput" placeholder="Digite uma mensagem..." />
             <button id="sendMessageBtn">Enviar</button>
-            <!-- Botão para apagar todas as mensagens -->
-            <button id="clearChatBtn">Limpar Conversa</button>
         </div>
     </div>
 
     <script>
     const ws = new WebSocket('wss://chat-2xo1.onrender.com');
-    let username = '';
-    let targetUser = null;
+let username = '';
+let targetUser = null;
 
-    // Função para limpar o histórico de mensagens
-    function clearChatHistory(user1, user2) {
-        const chatKey = `${user1}-${user2}`;
-        const reverseChatKey = `${user2}-${user1}`;
+// Verificar se o nome do usuário já está salvo no localStorage
+if (localStorage.getItem('username')) {
+    username = localStorage.getItem('username');
+    autoLogin(username);
+}
 
-        // Limpar o histórico de mensagens do localStorage
-        localStorage.removeItem(chatKey);
-        localStorage.removeItem(reverseChatKey);
-
-        // Limpar as mensagens exibidas no chat
-        document.getElementById('messages').innerHTML = '';
+// Registrar o usuário
+document.getElementById('registerBtn').onclick = () => {
+    username = document.getElementById('username').value;
+    if (username) {
+        localStorage.setItem('username', username); // Salvar nome no localStorage
+        ws.send(JSON.stringify({ type: 'register', username }));
+        document.getElementById('userSection').style.display = 'none';
+        document.getElementById('chatSection').style.display = 'block';
     }
+};
 
-    // Registrar o usuário
-    document.getElementById('registerBtn').onclick = () => {
-        username = document.getElementById('username').value;
-        if (username) {
-            localStorage.setItem('username', username); // Salvar nome no localStorage
-            ws.send(JSON.stringify({ type: 'register', username }));
-            document.getElementById('userSection').style.display = 'none';
-            document.getElementById('chatSection').style.display = 'block';
-        }
+// Login automático caso o nome esteja salvo
+function autoLogin(savedUsername) {
+    username = savedUsername;
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'register', username }));
+        document.getElementById('username').value = username; // Mostrar o nome no input
+        document.getElementById('userSection').style.display = 'none';
+        document.getElementById('chatSection').style.display = 'block';
+    };
+}
+
+// Salvar mensagem no localStorage
+function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
+    const chatKey = `${sender}-${recipient}`;
+    const reverseChatKey = `${recipient}-${sender}`;
+
+    // Verifica se existe um histórico para esse chat ou o contrário
+    let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
+    const timestamp = new Date().toISOString();
+
+    // Mensagem a ser salva com timestamp e status de visualização
+    const messageObject = {
+        sender,
+        message,
+        timestamp,
+        read: isReceived ? false : true // Se for uma mensagem recebida, ela ainda não foi lida
     };
 
-    // Função para iniciar o chat
-    function startChat(user) {
-        targetUser = user;
-        document.getElementById('chatWith').textContent = user;
-        document.getElementById('chatBox').style.display = 'block';
+    chatHistory.push(messageObject);
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory)); 
 
-        // Carregar histórico de mensagens
-        document.getElementById('messages').innerHTML = ''; // Limpar mensagens antigas
-        loadMessagesFromLocalStorage(username, user);
+    // Também guarda o histórico no chat inverso (de recipient para sender)
+    let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+    reverseChatHistory.push({ sender, message, timestamp, read: true }); // Recebida já marcada como lida
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory)); 
+}
+
+// Carregar mensagens do localStorage
+function loadMessagesFromLocalStorage(user1, user2) {
+    const chatKey = `${user1}-${user2}`;
+    const reverseChatKey = `${user2}-${user1}`;
+
+    // Buscar as mensagens do localStorage
+    const chatHistory = JSON.parse(localStorage.getItem(chatKey)) || JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+
+    // Exibir as mensagens carregadas
+    chatHistory.forEach(chat => {
+        appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
+    });
+
+    // Marcar todas as mensagens como "lidas" após abrir o chat
+    markMessagesAsRead(user1, user2);
+}
+
+// Marcar as mensagens como lidas
+function markMessagesAsRead(user1, user2) {
+    const chatKey = `${user1}-${user2}`;
+    const reverseChatKey = `${user2}-${user1}`;
+
+    let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
+    chatHistory.forEach(message => {
+        message.read = true;
+    });
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory));
+
+    let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+    reverseChatHistory.forEach(message => {
+        message.read = true;
+    });
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
+}
+
+// Enviar mensagem
+document.getElementById('sendMessageBtn').onclick = () => {
+    const message = document.getElementById('messageInput').value;
+    if (message && targetUser) {
+        ws.send(JSON.stringify({ type: 'private_message', target: targetUser, message }));
+        saveMessageToLocalStorage(username, targetUser, message, false); // Salvar mensagem enviada
+        appendMessage('Você', message, true, new Date().toISOString(), true);
+        document.getElementById('messageInput').value = ''; // Limpar input
     }
+};
 
-    // Vincular a função de limpar conversa ao botão
-    document.getElementById('clearChatBtn').onclick = () => {
-        if (targetUser) {
-            clearChatHistory(username, targetUser);
-        }
-    };
+// Quando uma mensagem for recebida do WebSocket
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-    // Carregar mensagens do localStorage
-    function loadMessagesFromLocalStorage(user1, user2) {
-        const chatKey = `${user1}-${user2}`;
-        const reverseChatKey = `${user2}-${user1}`;
-
-        // Buscar as mensagens do localStorage
-        const chatHistory = JSON.parse(localStorage.getItem(chatKey)) || JSON.parse(localStorage.getItem(reverseChatKey)) || [];
-
-        // Exibir as mensagens carregadas
-        chatHistory.forEach(chat => {
-            appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
+    // Atualizar lista de usuários
+    if (data.type === 'user_list') {
+        const userList = document.getElementById('userList');
+        userList.innerHTML = ''; // Limpar lista antes de atualizar
+        data.users.forEach(user => {
+            const div = document.createElement('div');
+            div.classList.add('user');
+            div.innerHTML = `${user.username} ${user.status}`;
+            div.onclick = () => startChat(user.username); // Iniciar conversa ao clicar
+            userList.appendChild(div);
         });
-
-        // Marcar todas as mensagens como "lidas" após abrir o chat
-        markMessagesAsRead(user1, user2);
     }
 
-    // Salvar mensagem no localStorage
-    function saveMessageToLocalStorage(sender, recipient, message, isReceived) {
-        const chatKey = `${sender}-${recipient}`;
-        const reverseChatKey = `${recipient}-${sender}`;
-
-        // Verifica se existe um histórico para esse chat ou o contrário
-        let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
-        const timestamp = new Date().toISOString();
-
-        // Mensagem a ser salva com timestamp e status de visualização
-        const messageObject = {
-            sender,
-            message,
-            timestamp,
-            read: isReceived ? false : true // Se for uma mensagem recebida, ela ainda não foi lida
-        };
-
-        chatHistory.push(messageObject);
-        localStorage.setItem(chatKey, JSON.stringify(chatHistory)); 
-
-        // Também guarda o histórico no chat inverso (de recipient para sender)
-        let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
-        reverseChatHistory.push({ sender, message, timestamp, read: true }); // Recebida já marcada como lida
-        localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory)); 
-    }
-
-    // Função para adicionar uma mensagem à área de conversa
-    function appendMessage(sender, message, isSent, timestamp, readStatus) {
-        const messagesDiv = document.getElementById('messages');
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add(isSent ? 'sent' : 'received');
-        
-        const time = new Date(timestamp).toLocaleTimeString();
-        const readIcon = readStatus
-            ? '<span class="read-icon" style="color: green;">✓</span>' // Ícone verde (visualizada)
-            : '<span class="read-icon" style="color: gray;">✓</span>'; // Ícone cinza (não visualizada)
-
-        messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
-        messagesDiv.appendChild(messageDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
-    }
-
-    // WebSocket para interação
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        // Atualizar lista de usuários
-        if (data.type === 'user_list') {
-            const userList = document.getElementById('userList');
-            userList.innerHTML = ''; // Limpar lista antes de atualizar
-            data.users.forEach(user => {
-                const div = document.createElement('div');
-                div.classList.add('user');
-                div.innerHTML = `${user.username} ${user.status}`;
-                div.onclick = () => startChat(user.username); // Iniciar conversa ao clicar
-                userList.appendChild(div);
-            });
+    // Receber mensagem privada
+    if (data.type === 'private_message') {
+        if (data.from === targetUser) {
+            saveMessageToLocalStorage(data.from, username, data.message, true); // Salvar mensagem recebida
+            appendMessage(data.from, data.message, false, new Date().toISOString(), false);
+        } else {
+            alert(`Nova mensagem de ${data.from}`);
         }
+    }
+};
 
-        // Receber mensagem privada
-        if (data.type === 'private_message') {
-            if (data.from === targetUser) {
-                saveMessageToLocalStorage(data.from, username, data.message, true); // Salvar mensagem recebida
-                appendMessage(data.from, data.message, false, new Date().toISOString(), false);
-            } else {
-                alert(`Nova mensagem de ${data.from}`);
-            }
-        }
-    };
-    </script>
+// Iniciar a conversa com um usuário
+function startChat(user) {
+    targetUser = user;
+    document.getElementById('chatWith').textContent = user;
+    document.getElementById('chatBox').style.display = 'block';
+
+    // Carregar histórico de mensagens
+    document.getElementById('messages').innerHTML = ''; // Limpar mensagens antigas
+    loadMessagesFromLocalStorage(username, user);
+}
+
+// Função para adicionar uma mensagem à área de conversa
+function appendMessage(sender, message, isSent, timestamp, readStatus) {
+    const messagesDiv = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add(isSent ? 'sent' : 'received');
+    
+    const time = new Date(timestamp).toLocaleTimeString();
+    const readIcon = readStatus
+        ? '<span class="read-icon" style="color: green;">✓</span>' // Ícone verde (visualizada)
+        : '<span class="read-icon" style="color: gray;">✓</span>'; // Ícone cinza (não visualizada)
+
+    messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para o final
+}
+</script>
+
 </body>
 </html>

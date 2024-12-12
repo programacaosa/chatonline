@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat WebSocket</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
    <style>
     body {
         font-family: Arial, sans-serif;
@@ -141,8 +142,22 @@
             padding: 12px 15px;
         }
     }
-</style>
+	#fileInput {
+    width: 80%;
+    padding: 5px;
+    margin-bottom: 10px;
+}
 
+#sendFileBtn {
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #28a745; /* Verde */
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+</style>
 </head>
 <body>
     <h1>Chat WebSocket</h1>
@@ -159,6 +174,8 @@
             <h3>Conversando com <span id="chatWith"></span></h3>
             <div id="messages"></div>
             <input type="text" id="messageInput" placeholder="Digite uma mensagem..." />
+			<input type="file" id="fileInput" style="margin-top: 10px;" />
+            <button id="sendFileBtn">Enviar Documento</button>
             <button id="sendMessageBtn">Enviar</button>
             <button id="clearChatBtn">Limpar Conversa</button> <!-- Botão para limpar conversa -->
         </div>
@@ -252,50 +269,134 @@ function markMessagesAsRead(user1, user2) {
     localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
 }
 
+function appendMessage(sender, message, isSent, timestamp, readStatus) {
+    const messagesDiv = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add(isSent ? 'sent' : 'received');
+
+    const time = new Date(timestamp).toLocaleTimeString();
+    const readIcon = readStatus
+        ? '<span class="read-icon" style="color: green;">✓</span>'
+        : '<span class="read-icon" style="color: gray;">✓</span>';
+
+    if (message.includes('Recebeu um documento:')) {
+        // Link para baixar o arquivo
+        messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
+    } else {
+        messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
+    }
+
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
 // Enviar mensagem
 document.getElementById('sendMessageBtn').onclick = () => {
-    const message = document.getElementById('messageInput').value;
+    const message = document.getElementById('messageInput').value.trim();
     if (message && targetUser) {
         ws.send(JSON.stringify({ type: 'private_message', target: targetUser, message }));
         saveMessageToLocalStorage(username, targetUser, message, false);
         appendMessage('Você', message, true, new Date().toISOString(), true);
         document.getElementById('messageInput').value = '';
+    } else {
+        alert('Digite uma mensagem e selecione um destinatário.');
     }
 };
+
+// Enviar arquivo
+document.getElementById('sendFileBtn').onclick = () => {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+
+    if (file && targetUser) {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const fileData = reader.result;
+
+            // Enviar o arquivo como base64 pelo WebSocket
+            ws.send(JSON.stringify({
+                type: 'file_transfer',
+                target: targetUser,
+                filename: file.name,
+                filedata: fileData
+            }));
+
+            // Salvar e exibir a mensagem localmente
+            const fileMessage = `Enviou um documento: <a href="${fileData}" download="${file.name}">${file.name}</a>`;
+            saveMessageToLocalStorage(username, targetUser, fileMessage, false);
+            appendMessage('Você', fileMessage, true, new Date().toISOString(), true);
+
+            fileInput.value = ''; // Limpar o input de arquivo
+        };
+
+        reader.readAsDataURL(file); // Ler o arquivo como base64
+    } else {
+        alert('Selecione um arquivo e um destinatário antes de enviar.');
+    }
+};
+
 
 // Quando uma mensagem for recebida do WebSocket
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
+    // Verificar tipo 'user_list' (lista de usuários)
     if (data.type === 'user_list') {
         const userList = document.getElementById('userList');
-        userList.innerHTML = '';
+        userList.innerHTML = '';  // Limpar lista de usuários
+
+        // Adicionar cada usuário na lista de usuários
         data.users.forEach(user => {
             const div = document.createElement('div');
             div.classList.add('user');
             div.innerHTML = `${user.username} ${user.status}`;
-            div.onclick = () => startChat(user.username);
+            div.onclick = () => startChat(user.username); // Iniciar chat com o usuário
             userList.appendChild(div);
         });
     }
 
+    // Verificar tipo 'private_message' (mensagens privadas)
     if (data.type === 'private_message') {
         if (data.from === targetUser) {
+            // Salvar e exibir a mensagem no localStorage
             saveMessageToLocalStorage(data.from, username, data.message, true);
             appendMessage(data.from, data.message, false, new Date().toISOString(), false);
         } else {
+            // Alerta para nova mensagem de outro usuário
             alert(`Nova mensagem de ${data.from}`);
+        }
+    }
+
+    // Verificar tipo 'file_transfer' (transferência de arquivo)
+    if (data.type === 'file_transfer') {
+        if (data.from === targetUser) {
+            // Salvar a mensagem do arquivo recebido no localStorage
+            saveMessageToLocalStorage(data.from, username, `Recebeu um documento: ${data.filename}`, true);
+            
+            // Exibir o link para o arquivo recebido
+            const fileLink = data.filedata 
+                ? `<a href="${data.filedata}" download="${data.filename}">${data.filename}</a>` 
+                : 'Arquivo inválido ou não encontrado';
+            appendMessage(data.from, `Recebeu um documento: ${fileLink}`, false, new Date().toISOString(), false);
+        } else {
+            // Alerta para novo arquivo de outro usuário
+            alert(`Novo arquivo de ${data.from}: ${data.filename}`);
         }
     }
 };
 
-// Iniciar a conversa com um usuário
+
+// Função para iniciar a conversa com um usuário
 function startChat(user) {
     targetUser = user;
-    document.getElementById('chatWith').textContent = user;
-    document.getElementById('chatBox').style.display = 'block';
+    document.getElementById('chatWith').textContent = user;  // Mostrar o nome do usuário com quem está conversando
+    document.getElementById('chatBox').style.display = 'block'; // Mostrar a caixa de chat
 
+    // Limpar as mensagens anteriores na tela
     document.getElementById('messages').innerHTML = '';
+
+    // Carregar as mensagens do localStorage
     loadMessagesFromLocalStorage(username, user);
 }
 
@@ -305,14 +406,20 @@ function appendMessage(sender, message, isSent, timestamp, readStatus) {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add(isSent ? 'sent' : 'received');
     
-    const time = new Date(timestamp).toLocaleTimeString();
+    const time = new Date(timestamp).toLocaleTimeString(); // Formatar o horário da mensagem
     const readIcon = readStatus
-        ? '<span class="read-icon" style="color: green;">✓</span>'
-        : '<span class="read-icon" style="color: gray;">✓</span>';
+        ? '<span class="read-icon" style="color: green;">✓</span>' // Mensagem lida
+        : '<span class="read-icon" style="color: gray;">✓</span>'; // Mensagem não lida
 
-    messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`;
-    messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // Exibir a mensagem, levando em consideração se é um arquivo ou mensagem de texto
+    if (message.includes('Recebeu um documento:')) {
+        messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`; // Link do arquivo
+    } else {
+        messageDiv.innerHTML = `${sender} (${time}) ${readIcon}: ${message}`; // Mensagem de texto
+    }
+
+    messagesDiv.appendChild(messageDiv); // Adicionar a mensagem à lista de mensagens
+    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Rolagem automática para a última mensagem
 }
 
 // Limpar conversa do usuário selecionado
@@ -320,13 +427,47 @@ document.getElementById('clearChatBtn').onclick = () => {
     if (targetUser) {
         const chatKey = `${username}-${targetUser}`;
         const reverseChatKey = `${targetUser}-${username}`;
-        localStorage.removeItem(chatKey);
+        localStorage.removeItem(chatKey);  // Remover histórico do chat no localStorage
         localStorage.removeItem(reverseChatKey);
 
-        document.getElementById('messages').innerHTML = ''; // Limpar as mensagens exibidas
+        document.getElementById('messages').innerHTML = '';  // Limpar as mensagens exibidas
     }
 };
-</script>
 
+// Carregar mensagens do localStorage
+function loadMessagesFromLocalStorage(user1, user2) {
+    const chatKey = `${user1}-${user2}`;
+    const reverseChatKey = `${user2}-${user1}`;
+
+    // Recuperar histórico de mensagens, se houver
+    const chatHistory = JSON.parse(localStorage.getItem(chatKey)) || JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+
+    // Exibir as mensagens no chat
+    chatHistory.forEach(chat => {
+        appendMessage(chat.sender, chat.message, chat.sender === username, chat.timestamp, chat.read);
+    });
+
+    // Marcar as mensagens como lidas
+    markMessagesAsRead(user1, user2);
+}
+
+// Marcar as mensagens como lidas
+function markMessagesAsRead(user1, user2) {
+    const chatKey = `${user1}-${user2}`;
+    const reverseChatKey = `${user2}-${user1}`;
+
+    let chatHistory = JSON.parse(localStorage.getItem(chatKey)) || [];
+    chatHistory.forEach(message => {
+        message.read = true;  // Marcar como lido
+    });
+    localStorage.setItem(chatKey, JSON.stringify(chatHistory));
+
+    let reverseChatHistory = JSON.parse(localStorage.getItem(reverseChatKey)) || [];
+    reverseChatHistory.forEach(message => {
+        message.read = true;  // Marcar como lido
+    });
+    localStorage.setItem(reverseChatKey, JSON.stringify(reverseChatHistory));
+}
+</script>
 </body>
 </html>
